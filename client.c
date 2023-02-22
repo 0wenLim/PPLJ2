@@ -5,54 +5,64 @@
 
 char server_reply[100];
 int recv_size;
+char str[10];
 
 #pragma comment(lib, "ws2_32.lib")
 
 int main(int argc, char *argv[]) {
-    // Baca file PDF
-    char *filename = "file.pdf"; // Ganti dengan nama file PDF yang ingin Anda kirimkan
-    FILE *file;
-    long file_size;
-    char *file_data;
-    file = fopen(filename, "rb");
-    if (file == NULL) {
-        printf("Gagal membuka file");
+
+    // Initialize Winsock
+    WSADATA wsa;
+    int iResult = WSAStartup(MAKEWORD(2, 2), &wsa);
+    if (iResult != 0) {
+        printf("Inisialisasi gagal: %d\n", iResult);
         return 1;
     }
-    fseek(file, 0, SEEK_END);
-    file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    file_data = (char *)malloc(file_size);
-    fread(file_data, file_size, 1, file);
-    fclose(file);
     
-    char str[10];
+    // Create a socket
+    SOCKET client_socket;
+    struct sockaddr_in server_addr;
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket == INVALID_SOCKET) {
+        printf("Gagal membuat socket: %d", WSAGetLastError());
+        return 1;
+    }
 
-    do {
-        // Inisialisasi Winsock
-        WSADATA wsa;
-        if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
-            printf("Gagal memulai Winsock. Error Code : %d", WSAGetLastError());
+    // connect to server
+    char *server_ip = "127.0.0.1"; // Ganti dengan alamat IP server Anda
+    int server_port = 12345; // Ganti dengan port yang Anda gunakan di server.py   
+   
+    server_addr.sin_addr.s_addr = inet_addr(server_ip);
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(server_port);
+    if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        printf("Koneksi gagal");
+        return 1;
+    }
+    
+    do{
+        // masukkan dan baca nama file yang ingin diupload
+        char filename[30];
+        printf("masukkan nama file yang ingin diupload: ");
+        scanf("%s[^\n]", filename);        
+        FILE *file;
+        long file_size;
+        char *file_data;
+        file = fopen(filename, "rb");
+        if (file == NULL) {
+            printf("Gagal membuka file\n");
             return 1;
         }
+        fseek(file, 0, SEEK_END);
+        file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        file_data = (char *)malloc(file_size);
+        fread(file_data, file_size, 1, file);
+        fclose(file);
 
-        // Buat koneksi ke server
-        SOCKET client_socket;
-        struct sockaddr_in server_addr;
-        char *server_ip = "127.0.0.1"; // Ganti dengan alamat IP server Anda
-        int server_port = 12345; // Ganti dengan port yang Anda gunakan di server.py
-        client_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (client_socket == INVALID_SOCKET) {
-            printf("Gagal membuat socket. Error Code : %d", WSAGetLastError());
-            return 1;
-        }
-        server_addr.sin_addr.s_addr = inet_addr(server_ip);
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(server_port);
-        if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-            printf("Koneksi gagal");
-            return 1;
-        }
+        printf("file berhasil dibaca\n");
+
+        //upload ke server
         printf("Ketik \"upload\" untuk mengirim file: ");
         scanf("%s", str);
         if (send(client_socket, str, strlen(str), 0) < 0) {
@@ -74,7 +84,6 @@ int main(int argc, char *argv[]) {
         }
     } while (strcmp(str, "upload") != 0);
     
-
     printf("Data PDF berhasil dikirim\n");
 
     return 0;
